@@ -309,36 +309,48 @@
 
   function addVariantBugs(id, code) {
     let result = String(code);
+    let selectedReason = '';
     const mutations = {
       'js-inventory-01': [
-        ['const shipping = subtotal >= 200 ? 0 : 12;', 'const shipping = subtotal > 200 ? 0 : 12;']
+        ['const shipping = subtotal >= 200 ? 0 : 12;', 'const shipping = subtotal >= 600 ? 0 : 12;', 'Ngưỡng miễn phí vận chuyển đã bị đổi.'],
+        ['return 0;\n}\n\nfunction buildReceipt', 'return subtotal * 0.02;\n}\n\nfunction buildReceipt', 'Hàm giảm giá trả về một khoản giảm giá giả khi không đạt ngưỡng.']
       ],
       'js-login-02': [
-        ['failed++;', 'failed += 2;']
+        ['failed++;', 'failed += 2;', 'Bộ đếm thất bại tăng sai hai lần cho mỗi event.'],
+        ['event.user === username', 'event.user !== username', 'Điều kiện đang đếm nhầm user khác thay vì user cần kiểm tra.']
       ],
       'html-profile-01': [
-        ['</ul>', '</section>']
+        ['</ul>', '</section>', 'Danh sách đang đóng sai thẻ HTML.'],
+        ['<h2>About</h2>', '<h3>About</h3>', 'Tiêu đề About bị đổi cấp heading.']
       ],
       'html-form-02': [
-        ['<input id="email" name="email" type="email" required>', '<input id="email" name="email" type="text" required>']
+        ['<input id="email" name="email" type="email" required>', '<input id="email" name="email" type="text" required>', 'Ô email bị đổi sang kiểu text.'],
+        ['<button type="submit">Create Account</button>', '<button type="button">Create Account</button>', 'Nút gửi form không còn submit form.']
       ],
       'cpp-average-01': [
-        ['if (abs(result - expected) < 0.0001 && peak == 24.00)', 'if (abs(result - expected) < 0.0001 && peak != 24.00)']
+        ['if (abs(result - expected) < 0.0001 && peak == 24.00)', 'if (abs(result - expected) < 0.0001 && peak != 24.00)', 'Điều kiện kiểm tra peak bị đảo.'],
+        ['return sum / values.size();', 'return sum / (values.size() - 1);', 'Mẫu số của phép tính trung bình bị giảm đi một.']
       ],
       'cpp-stack-02': [
-        ['if (stack.empty()) {', 'if (!stack.empty()) {']
+        ['if (stack.empty()) {', 'if (!stack.empty()) {', 'Điều kiện kiểm tra stack rỗng bị đảo.'],
+        ['return popScore(stack);', 'return stack.back();', 'Hàm đọc đỉnh stack nhưng không loại bỏ phần tử.']
       ],
       'csharp-grade-01': [
-        ['if (score >= 60)', 'if (score > 60)']
+        ['if (score >= 60)', 'if (score > 60)', 'Điều kiện biên điểm D bị đổi từ >= sang >.'],
+        ['if (score >= 90)', 'if (score > 90)', 'Điều kiện biên điểm A bị đổi từ >= sang >.']
       ],
       'csharp-null-02': [
-        ['for (int i = 0; i < names.Length; i++)', 'for (int i = 0; i <= names.Length; i++)']
+        ['for (int i = 0; i < names.Length; i++)', 'for (int i = 0; i <= names.Length; i++)', 'Vòng lặp truy cập vượt quá phần tử cuối.'],
+        ['string displayName = name?.Trim() ?? "";', 'string displayName = name.Trim();', 'Tên null bị gọi Trim trực tiếp.']
       ]
     };
-    for (const [from, to] of mutations[id] || []) {
-      if (result.includes(from)) result = result.replace(from, to);
+    const available = (mutations[id] || []).filter(([from]) => result.includes(from));
+    const chosen = available[Math.floor(Math.random() * available.length)];
+    if (chosen) {
+      result = result.replace(chosen[0], chosen[1]);
+      selectedReason = chosen[2];
     }
-    return result;
+    return { code: result, reason: selectedReason };
   }
 
   function getRank(user) {
@@ -451,7 +463,9 @@
       ]
     };
 
-    variant.broken = addVariantBugs(base.id, base.broken);
+    const extraBug = addVariantBugs(base.id, base.broken);
+    variant.broken = extraBug.code;
+    variant.extraBugReason = extraBug.reason;
     if (replacements[base.id]) {
       variant.broken = replaceIdentifierPair(variant.broken, replacements[base.id]);
       variant.solution = replaceIdentifierPair(base.solution, replacements[base.id]);
@@ -468,7 +482,7 @@
     return variant;
   }
 
-  function variantBugNote(base) {
+  function variantBugNote(base, completedChallenge) {
     const extra = {
       'js-inventory-01': 'Kiểm tra thêm điều kiện miễn phí vận chuyển ở ngưỡng biên.',
       'js-login-02': 'Bộ đếm thất bại đang bị cộng sai số lần.',
@@ -479,7 +493,12 @@
       'csharp-grade-01': 'Điều kiện biên của điểm số đang bị đổi sang so sánh nghiêm ngặt.',
       'csharp-null-02': 'Vòng lặp đang truy cập vượt quá phần tử cuối.'
     };
-    return [...(base.bugs || []).map(bug => bug.reason), extra[base.id]].filter(Boolean);
+    return [...(base.bugs || []).map(bug => bug.reason), completedChallenge?.extraBugReason || extra[base.id]].filter(Boolean);
+  }
+
+  function variantFixGuide(base, completedChallenge) {
+    const notes = variantBugNote(base, completedChallenge);
+    return notes.length ? `Hãy sửa từng lỗi theo thứ tự kiểm tra input, điều kiện và trạng thái dữ liệu. ${notes.join(' ')}` : 'Kiểm tra lại output mong đợi và các điều kiện biên.';
   }
 
   function routeFromHash() {
@@ -567,7 +586,7 @@
               <div class="file-pill"><strong id="editorFileLabel">challenge.js</strong><span class="file-state">LIVE</span></div>
               <div class="language-name" id="languageLabel">JavaScript</div>
               <div class="timer-box"><span id="runState" class="run-state">READY</span><div id="timer" class="timer">03:00.000</div></div>
-              <div class="editor-actions"><button id="menuBtn" class="secondary-btn">☰ Menu</button><button id="practiceBtn" class="secondary-btn practice-btn">◇ Practice</button><button id="resetBtn" class="secondary-btn">↻ Reset</button><button id="startBtn" class="start-btn">▶ Start Match</button><button id="submitBtn" class="submit-btn" disabled>⚑ Submit</button></div>
+              <div class="editor-actions"><button id="menuBtn" class="secondary-btn">☰ Menu</button><button id="practiceBtn" class="secondary-btn practice-btn">◇ Practice</button><button id="resetBtn" class="secondary-btn">↻ Reset</button><button id="aiChallengeBtn" class="secondary-btn">✦ AI Challenge</button><button id="startBtn" class="start-btn">▶ Start Match</button><button id="submitBtn" class="submit-btn" disabled>⚑ Submit</button></div>
             </div>
             <div class="editor-wrap"><div id="editor" class="editor"></div><div id="editorUnavailable" class="editor-unavailable hidden"><div class="editor-unavailable-box"><h3>Monaco Editor unavailable</h3><p>Không tải được Monaco từ CDN. Kiểm tra mạng rồi reload.</p></div></div></div>
             <div id="bottomPanel" class="bottom-panel">
@@ -692,6 +711,7 @@
   function bindSpeedrunControls() {
     $('menuBtn').onclick = () => go('menu');
     $('resetBtn').onclick = resetChallenge;
+    $('aiChallengeBtn').onclick = generateAiChallenge;
     $('practiceBtn').onclick = togglePractice;
     $('toggleBottomBtn').onclick = toggleBottomPanel;
     $('startBtn').onclick = startRun;
@@ -845,8 +865,6 @@
     selectRandomChallenge();
     if (!state.challengeBase) return;
     state.practice = false;
-    state.challenge = createVariant(state.challengeBase);
-    state.challengeVariantSeed = state.challenge.seed;
     state.elapsedMs = 0;
     configureCurrentEditor();
     state.activeRunId += 1;
@@ -926,7 +944,7 @@
     const resultUser = user ? { ...user, totalCorrect: displayedClears } : user;
     const rank = getRank(resultUser);
     const rp = rankProgress(resultUser);
-    const failureGuide = !correct || timedOut ? `<details class="failure-guide"><summary>Những lỗi cần kiểm tra</summary><ul>${variantBugNote(base).map(note => `<li>${escapeHtml(note)}</li>`).join('')}</ul><pre>${escapeHtml(completedChallenge?.solution || '')}</pre></details>` : '';
+    const failureGuide = !correct || timedOut ? `<details class="failure-guide"><summary>Những lỗi cần kiểm tra và cách giải</summary><ul>${variantBugNote(base, completedChallenge).map(note => `<li>${escapeHtml(note)}</li>`).join('')}</ul><p>${escapeHtml(variantFixGuide(base, completedChallenge))}</p></details>` : '';
     $('resultsBody').innerHTML = `<div class="result-card"><div class="result-stat"><small>RESULT</small><strong class="${correct && !timedOut ? 'result-good' : 'result-bad'}">${correct && !timedOut ? 'PASS' : timedOut ? 'TIMEOUT' : 'FAIL'}</strong></div><div class="result-stat"><small>TIME</small><strong>${formatMs(state.elapsedMs)}</strong></div><div class="result-stat"><small>RANK</small><strong class="result-rank ${rank.id}">${rankIconSvg(rank, 'mini')} ${escapeHtml(rank.name)}</strong></div><div class="result-stat"><small>CLEARS</small><strong>${displayedClears}</strong></div></div><p class="run-note">${correct && !timedOut ? `Solution accepted. ${score.newBest ? 'NEW PERSONAL BEST!' : 'Clear recorded.'}` : timedOut ? 'Timeout: no clear was added.' : 'The submitted code does not match the expected solution.'} ${rp.next ? `Còn ${rp.remaining} clear để lên ${rp.next.name}.` : ''}</p>${failureGuide}<div class="result-next-note"><span>NEW BOARD READY</span><strong>${escapeHtml(base.title)}</strong><small>Một variant khác đã được sinh ra cho lượt tiếp theo.</small></div>`;
     showToast(correct && !timedOut ? (score.newBest ? `NEW PB · ${formatMs(state.elapsedMs)}` : `CLEAR · ${formatMs(state.elapsedMs)}`) : timedOut ? 'TIMEOUT' : 'RUN FAILED', correct && !timedOut ? 'success' : 'error');
   }
@@ -1187,6 +1205,60 @@
 
   function getGeminiKey() { return localStorage.getItem(STORAGE.geminiKey) || ''; }
   function getGeminiModel() { return localStorage.getItem(STORAGE.geminiModel) || DEFAULT_MODEL; }
+
+  function parseAiJson(text) {
+    const cleaned = String(text || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    return JSON.parse(cleaned);
+  }
+
+  async function generateAiChallenge() {
+    const button = $('aiChallengeBtn');
+    const key = getGeminiKey();
+    if (!key) {
+      showToast('Hãy nhập Gemini API Key trong Cài đặt trước.', 'error');
+      openSettings();
+      return;
+    }
+    if (state.running || state.finishing || !state.editor) {
+      showToast('Hãy chờ run hiện tại kết thúc trước khi tạo bài mới.', 'error');
+      return;
+    }
+    if (button) { button.disabled = true; button.textContent = '✦ Đang tạo...'; }
+    const language = state.language;
+    const languageLabel = LANGUAGES[language].label;
+    const prompt = `Create one original debugging challenge for a timed coding game in ${languageLabel}. Return JSON only, no markdown, exactly with: {"title":"...","difficulty":"Easy|Medium|Hard","broken":"...","solution":"...","bugs":[{"reason":"...","concept":"..."},{"reason":"...","concept":"..."}]}. The broken code must contain at least two independent real bugs. The solution must fix every bug. Keep the code self-contained, deterministic, runnable, and 20-80 lines. Include a final CHECK: PASS condition or equivalent test. Do not use network, browser APIs, filesystem, randomness, infinite loops, or external packages. Make the bugs different from simple variable renaming.`;
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(getGeminiModel())}:generateContent?key=${encodeURIComponent(key)}`;
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.85, responseMimeType: 'application/json' } }) });
+      if (!response.ok) throw new Error(`Gemini HTTP ${response.status}`);
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('');
+      const generated = parseAiJson(text);
+      if (!generated || typeof generated.broken !== 'string' || typeof generated.solution !== 'string' || generated.broken === generated.solution) throw new Error('Gemini trả về challenge không hợp lệ.');
+      if (!Array.isArray(generated.bugs) || generated.bugs.length < 2) throw new Error('Challenge phải có ít nhất 2 lỗi.');
+      if (generated.broken.length < 40 || generated.solution.length < 40 || generated.broken.length > 20000) throw new Error('Code challenge có độ dài không hợp lệ.');
+      const generatedChallenge = {
+        id: `ai-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+        language,
+        title: String(generated.title || 'AI Debugging Lab').slice(0, 80),
+        difficulty: ['Easy', 'Medium', 'Hard'].includes(generated.difficulty) ? generated.difficulty : 'Medium',
+        timeLimitMs: 180000,
+        broken: generated.broken,
+        solution: generated.solution,
+        bugs: generated.bugs.slice(0, 6).map(bug => ({ reason: String(bug.reason || 'Bug generated by Gemini.'), concept: String(bug.concept || 'Debugging') })),
+        source: 'gemini'
+      };
+      window.BUG_SPEEDRUNNER_CHALLENGES.push(generatedChallenge);
+      selectChallengeObject(generatedChallenge);
+      showToast('Gemini đã tạo challenge mới.', 'success');
+      setOutput(`AI CHALLENGE READY\n${generatedChallenge.title}\n${generatedChallenge.bugs.length} bugs detected by the challenge author.\nPress Start Match.`);
+    } catch (error) {
+      console.error('AI challenge generation failed:', error);
+      showToast(`Không tạo được challenge: ${error.message}`, 'error');
+    } finally {
+      if (button) { button.disabled = false; button.textContent = '✦ AI Challenge'; }
+    }
+  }
 
   async function requestAiAnalysis(payload) {
     const key = getGeminiKey();
