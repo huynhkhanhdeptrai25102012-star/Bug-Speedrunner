@@ -10,9 +10,32 @@
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
+<!-- Firebase SDK: use one consistent compat bundle first. If jsDelivr is blocked,
+     fall back to the official gstatic compat modules before app.js runs. -->
+<script src="https://cdn.jsdelivr.net/npm/firebase@12.18.0/firebase-compat.js"></script>
+<script>
+(function () {
+  if (window.firebase) return;
+
+  var fallback = [
+    "https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js",
+    "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth-compat.js",
+    "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"
+  ];
+
+  for (var i = 0; i < fallback.length; i++) {
+    document.write('<script src="' + fallback[i] + '"><\\/script>');
+  }
+})();
+</script>
+<script>
+(function () {
+  if (!window.firebase) {
+    window.__FIREBASE_SDK_LOAD_FAILED__ = true;
+    console.error("Firebase SDK failed to load from both CDN paths.");
+  }
+})();
+</script>
 </head>
 <body>
 <div class="app-shell">
