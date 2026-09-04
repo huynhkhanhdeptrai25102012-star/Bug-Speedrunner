@@ -37,7 +37,8 @@
     { id: 'gold', name: 'Vàng', threshold: 8, lucide: 'trophy', description: 'Đạt sau 8 speedrun đúng.' },
     { id: 'platinum', name: 'Bạch kim', threshold: 15, lucide: 'gem', description: 'Đạt sau 15 speedrun đúng.' },
     { id: 'legendary', name: 'Huyền thoại', threshold: 25, lucide: 'crown', description: 'Đạt sau 25 speedrun đúng.' },
-    { id: 'god', name: 'GOD', threshold: 40, lucide: 'flame', description: 'Rank tối đa. Đạt sau 40 speedrun đúng.' }
+    { id: 'god', name: 'GOD', threshold: 40, lucide: 'flame', description: 'Đạt sau 40 speedrun đúng.' },
+    { id: 'emperor', name: 'Đế vương', threshold: 60, lucide: 'crown', description: 'Rank tối cao. Đạt sau 60 speedrun đúng.' }
   ];
 
   const state = {
@@ -110,6 +111,10 @@
   }
 
   function currentUser() { return state.currentUser; }
+
+  function totalCorrect(user) {
+    return Number(user?.totalCorrect ?? user?.stats?.totalCorrect ?? 0);
+  }
 
   function authEnvironmentMessage() {
     if (location.protocol === 'file:') {
@@ -248,16 +253,16 @@
   }
 
   function getRank(user) {
-    const clears = Number(user?.stats?.totalCorrect ?? user?.totalCorrect ?? 0);
+    const clears = totalCorrect(user);
     let result = RANKS[0];
     for (const rank of RANKS) if (clears >= rank.threshold) result = rank;
     return result;
   }
 
   function rankProgress(user) {
-    const clears = Number(user?.stats?.totalCorrect ?? user?.totalCorrect ?? 0);
+    const clears = totalCorrect(user);
     const current = getRank(user);
-    if (current.id === 'god') return { current, next: null, pct: 100, remaining: 0 };
+    if (current.id === 'emperor') return { current, next: null, pct: 100, remaining: 0 };
     const idx = RANKS.findIndex(rank => rank.id === current.id);
     const next = RANKS[idx + 1];
     const span = Math.max(1, next.threshold - current.threshold);
@@ -274,7 +279,8 @@
       gold: `<path d="M11 16h13l8-9 8 9h13l-5 13a17 17 0 0 1-16 12 17 17 0 0 1-16-12l-5-13Z"/><path d="M24 48h16M19 56h26"/>`,
       platinum: `<path d="m32 5 22 16-9 28-13 11-13-11-9-28L32 5Z"/><path d="m10 21 22 8 22-8M19 49l13-20 13 20M32 29v31"/>`,
       legendary: `<path d="M10 13h12l10 12 10-12h12l-4 18c-2 10-9 15-18 15s-16-5-18-15l-4-18Z"/><path d="M18 13V7h8l6 8 6-8h8v6M21 52h22M17 58h30"/>`,
-      god: `<path d="M36 4 18 31h12L23 60l23-32H34L36 4Z"/><path d="M10 40c5 3 8 9 8 17M54 40c-5 3-8 9-8 17"/>`
+      god: `<path d="M36 4 18 31h12L23 60l23-32H34L36 4Z"/><path d="M10 40c5 3 8 9 8 17M54 40c-5 3-8 9-8 17"/>`,
+      emperor: `<path d="m8 18 10 27h28l10-27-14 9-10-17-10 17-14-9Z"/><path d="M15 53h34M20 59h24"/>`
     };
     return `<svg ${common}><g fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round">${shapes[id] || shapes.bronze}</g></svg>`;
   }
@@ -298,16 +304,16 @@
   }
 
   function getRank(user) {
-    const clears = Number(user?.stats?.totalCorrect || 0);
+    const clears = totalCorrect(user);
     let result = RANKS[0];
     for (const rank of RANKS) if (clears >= rank.threshold) result = rank;
     return result;
   }
 
   function rankProgress(user) {
-    const clears = Number(user?.stats?.totalCorrect || 0);
+    const clears = totalCorrect(user);
     const current = getRank(user);
-    if (current.id === 'god') return { current, next: null, pct: 100, remaining: 0 };
+    if (current.id === 'emperor') return { current, next: null, pct: 100, remaining: 0 };
     const idx = RANKS.findIndex(rank => rank.id === current.id);
     const next = RANKS[idx + 1];
     const span = Math.max(1, next.threshold - current.threshold);
@@ -329,7 +335,8 @@
       gold: `<path d="M11 16h13l8-9 8 9h13l-5 13a17 17 0 0 1-16 12 17 17 0 0 1-16-12l-5-13Z"/><path d="M24 48h16M19 56h26"/>`,
       platinum: `<path d="m32 5 22 16-9 28-13 11-13-11-9-28L32 5Z"/><path d="m10 21 22 8 22-8M19 49l13-20 13 20M32 29v31"/>`,
       legendary: `<path d="M10 13h12l10 12 10-12h12l-4 18c-2 10-9 15-18 15s-16-5-18-15l-4-18Z"/><path d="M18 13V7h8l6 8 6-8h8v6M21 52h22M17 58h30"/>`,
-      god: `<path d="M36 4 18 31h12L23 60l23-32H34L36 4Z"/><path d="M10 40c5 3 8 9 8 17M54 40c-5 3-8 9-8 17"/>`
+      god: `<path d="M36 4 18 31h12L23 60l23-32H34L36 4Z"/><path d="M10 40c5 3 8 9 8 17M54 40c-5 3-8 9-8 17"/>`,
+      emperor: `<path d="m8 18 10 27h28l10-27-14 9-10-17-10 17-14-9Z"/><path d="M15 53h34M20 59h24"/>`
     };
     return `<svg ${common}><g fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round">${shapes[id] || shapes.bronze}</g></svg>`;
   }
@@ -462,7 +469,7 @@
               <div class="hero-panel-top"><span class="eyebrow">RUNNER STATUS</span><span class="online-dot"></span></div>
               <div class="menu-stats">
                 <div class="menu-stat"><small>RANK</small><strong class="menu-rank-value ${progress.current.id}">${rankIconSvg(progress.current, 'mini')} ${escapeHtml(progress.current.name)}</strong></div>
-                <div class="menu-stat"><small>ĐÚNG</small><strong>${user ? user.stats.totalCorrect : 0}</strong></div>
+                <div class="menu-stat"><small>ĐÚNG</small><strong>${user ? totalCorrect(user) : 0}</strong></div>
                 <div class="menu-stat"><small>BEST TIME</small><strong>${user ? bestOverall(user) : '—'}</strong></div>
                 <div class="menu-stat"><small>RUNS</small><strong>${user ? user.stats.totalRuns : 0}</strong></div>
               </div>
@@ -470,7 +477,7 @@
           </div>
           <div class="menu-grid">
             <button class="feature-card" id="menuSpeedrunBtn"><div class="feature-icon">⚡</div><h3>Speedrun</h3><p>Vào IDE, sửa bug trong giới hạn thời gian và ghi kỷ lục cá nhân.</p><span class="feature-arrow">→</span></button>
-            <button class="feature-card" id="menuRankBtn"><div class="feature-icon">🏆</div><h3>Rank</h3><p>Tìm hiểu 6 nấc rank, icon vector và tiến trình từ Đồng tới GOD.</p><span class="feature-arrow">→</span></button>
+            <button class="feature-card" id="menuRankBtn"><div class="feature-icon">🏆</div><h3>Rank</h3><p>Tìm hiểu 7 nấc rank, icon vector và tiến trình từ Đồng tới Đế vương.</p><span class="feature-arrow">→</span></button>
             <button class="feature-card" id="menuLeaderboardBtn"><div class="feature-icon">📊</div><h3>Leaderboard</h3><p>Hai bảng cạnh tranh: runner nhanh nhất và runner giải đúng nhiều nhất.</p><span class="feature-arrow">→</span></button>
             <button class="feature-card" id="menuAcademyBtn"><div class="feature-icon">🎓</div><h3>Beginner Academy</h3><p>Học cách nhìn bug nhanh, phím tắt IDE và tài nguyên lập trình miễn phí.</p><span class="feature-arrow">→</span></button>
           </div>
@@ -538,13 +545,13 @@
     const progress = rankProgress(user);
     view.innerHTML = `
       <section class="view page-shell">
-        <div class="page-head"><div class="page-title"><button class="nav-btn back-btn" id="rankBackBtn">← Menu</button><div><h2>Rank System</h2><div class="page-subtitle">6 nấc tiến trình của Bug Speedrunner</div></div></div><button id="rankSpeedrunBtn" class="primary-btn">⚡ Speedrun</button></div>
+        <div class="page-head"><div class="page-title"><button class="nav-btn back-btn" id="rankBackBtn">← Menu</button><div><h2>Rank System</h2><div class="page-subtitle">7 nấc tiến trình của Bug Speedrunner</div></div></div><button id="rankSpeedrunBtn" class="primary-btn">⚡ Speedrun</button></div>
         <div class="page-content">
-          <div class="rank-hero"><div class="rank-progress-card"><div class="rank-progress-head"><span class="eyebrow">YOUR CURRENT RANK</span><strong>${user ? `${user.stats.totalCorrect} clears` : 'Guest'}</strong></div><div class="rank-progress-main"><span class="big-icon ${progress.current.id}">${rankIconSvg(progress.current, 'normal')}</span><div><strong>${escapeHtml(progress.current.name)}</strong><br><span>${escapeHtml(progress.current.description)}</span></div></div><div class="progress-track"><span style="width:${progress.pct}%"></span></div><div class="rank-progress-note">${progress.next ? `Còn ${progress.remaining} clear để lên ${progress.next.name}.` : 'Bạn đã đạt GOD — 40 speedrun đúng.'}</div></div><div class="rank-tip-card"><h3>🏁 Rank Rules</h3><p>Chỉ speedrun đúng mới cộng rank. Thua, timeout và practice không cộng. GOD mở khóa từ 40 clear.</p></div></div>
-          <div class="rank-grid">${RANKS.map(rank => `<article class="rank-card ${rank.id}${rank.id === progress.current.id ? ' current' : ''}"><div class="rank-top"><div class="rank-icon ${rank.id}">${rankIconSvg(rank, 'normal')}</div><div><div class="rank-name">${escapeHtml(rank.name)}</div><div class="rank-requirement">${rank.threshold === 0 ? 'Bắt đầu' : `${rank.threshold} speedrun đúng`}</div></div></div>${rank.id === progress.current.id ? '<span class="rank-current-tag">CURRENT</span>' : ''}<p class="rank-copy">${escapeHtml(rank.description)}</p><div class="rank-bar"><span style="width:${user ? Math.min(100, (user.stats.totalCorrect / Math.max(1, rank.threshold || 1)) * 100) : 0}%"></span></div></article>`).join('')}</div>
+          <div class="rank-hero"><div class="rank-progress-card"><div class="rank-progress-head"><span class="eyebrow">YOUR CURRENT RANK</span><strong>${user ? `${totalCorrect(user)} clears` : 'Guest'}</strong></div><div class="rank-progress-main"><span class="big-icon ${progress.current.id}">${rankIconSvg(progress.current, 'normal')}</span><div><strong class="rank-text-${progress.current.id}">${escapeHtml(progress.current.name)}</strong><br><span>${escapeHtml(progress.current.description)}</span></div></div><div class="progress-track"><span style="width:${progress.pct}%"></span></div><div class="rank-progress-note">${progress.next ? `Còn ${progress.remaining} clear để lên ${progress.next.name}.` : 'Bạn đã đạt Đế vương — 60 speedrun đúng.'}</div></div><div class="rank-tip-card"><h3>🏁 Rank Rules</h3><p>Chỉ speedrun đúng mới cộng rank. Thua, timeout và practice không cộng. Đế vương mở khóa từ 60 clear.</p></div></div>
+          <div class="rank-grid">${RANKS.map(rank => `<article class="rank-card ${rank.id}${rank.id === progress.current.id ? ' current' : ''}"><div class="rank-top"><div class="rank-icon ${rank.id}">${rankIconSvg(rank, 'normal')}</div><div><div class="rank-name">${escapeHtml(rank.name)}</div><div class="rank-requirement">${rank.threshold === 0 ? 'Bắt đầu' : `${rank.threshold} speedrun đúng`}</div></div></div>${rank.id === progress.current.id ? '<span class="rank-current-tag">CURRENT</span>' : ''}<p class="rank-copy">${escapeHtml(rank.description)}</p><div class="rank-bar"><span style="width:${user ? Math.min(100, (totalCorrect(user) / Math.max(1, rank.threshold || 1)) * 100) : 0}%"></span></div></article>`).join('')}</div>
           <div class="achievement-grid">${[
-            ['⚡', 'First Blood', '1 clear', 1], ['🔥', 'Heat Up', '5 clears', 5], ['🏆', 'Gold Rush', '8 clears', 8], ['💎', 'Diamond Hands', '15 clears', 15], ['👑', 'Legendary', '25 clears', 25], ['⚡', 'GOD MODE', '40 clears', 40], ['☠️', 'No Quit', '10 attempts', 10], ['🎯', 'Clean Run', '1 PB', -1]
-          ].map(a => `<div class="achievement ${(user && (a[3] < 0 ? Object.keys(user.records).length > 0 : a[1] === 'No Quit' ? user.stats.totalRuns >= a[3] : user.stats.totalCorrect >= a[3])) ? 'unlocked' : ''}"><div class="a-icon">${a[0]}</div><strong>${a[1]}</strong><small>${a[2]}</small></div>`).join('')}</div>
+            ['⚡', 'First Blood', '1 clear', 1], ['🔥', 'Heat Up', '5 clears', 5], ['🏆', 'Gold Rush', '8 clears', 8], ['💎', 'Diamond Hands', '15 clears', 15], ['👑', 'Legendary', '25 clears', 25], ['⚡', 'GOD MODE', '40 clears', 40], ['♛', 'Đế vương', '60 clears', 60], ['☠️', 'No Quit', '10 attempts', 10], ['🎯', 'Clean Run', '1 PB', -1]
+          ].map(a => `<div class="achievement ${(user && (a[3] < 0 ? Object.keys(user.records).length > 0 : a[1] === 'No Quit' ? user.stats.totalRuns >= a[3] : totalCorrect(user) >= a[3])) ? 'unlocked' : ''}"><div class="a-icon">${a[0]}</div><strong>${a[1]}</strong><small>${a[2]}</small></div>`).join('')}</div>
         </div>
       </section>`;
     $('rankBackBtn').onclick = () => go('menu');
@@ -565,7 +572,7 @@
     return Array.from(state.leaderboardUsers.entries()).map(([key, raw]) => {
       const user = { key, ...ensureUserShape(raw) };
       const name = user.displayName || user.email?.split('@')[0] || 'Runner';
-      return { key, name, user, rank: getRank(user), bestMs: bestOverallMs(user), best: bestOverall(user), clears: Number(user.stats.totalCorrect || 0), runs: Number(user.stats.totalRuns || 0) };
+      return { key, name, user, rank: getRank(user), bestMs: bestOverallMs(user), best: bestOverall(user), clears: totalCorrect(user), runs: Number(user.stats.totalRuns || 0) };
     });
   }
 
@@ -862,9 +869,11 @@
 
   function renderResult(correct, timedOut, score, base) {
     const user = state.currentUser || currentUser();
-    const rank = getRank(user);
-    const rp = rankProgress(user);
-    $('resultsBody').innerHTML = `<div class="result-card"><div class="result-stat"><small>RESULT</small><strong class="${correct && !timedOut ? 'result-good' : 'result-bad'}">${correct && !timedOut ? 'PASS' : timedOut ? 'TIMEOUT' : 'FAIL'}</strong></div><div class="result-stat"><small>TIME</small><strong>${formatMs(state.elapsedMs)}</strong></div><div class="result-stat"><small>RANK</small><strong class="result-rank ${rank.id}">${rankIconSvg(rank, 'mini')} ${escapeHtml(rank.name)}</strong></div><div class="result-stat"><small>CLEARS</small><strong>${user ? user.stats.totalCorrect : 0}</strong></div></div><p class="run-note">${correct && !timedOut ? `Solution accepted. ${score.newBest ? 'NEW PERSONAL BEST!' : 'Clear recorded.'}` : timedOut ? 'Timeout: no clear was added.' : 'The submitted code does not match the expected solution.'} ${rp.next ? `Còn ${rp.remaining} clear để lên ${rp.next.name}.` : ''}</p><div class="result-next-note"><span>NEW BOARD READY</span><strong>${escapeHtml(base.title)}</strong><small>Một variant khác đã được sinh ra cho lượt tiếp theo.</small></div>`;
+    const displayedClears = score?.totalCorrect ?? totalCorrect(user);
+    const resultUser = user ? { ...user, totalCorrect: displayedClears } : user;
+    const rank = getRank(resultUser);
+    const rp = rankProgress(resultUser);
+    $('resultsBody').innerHTML = `<div class="result-card"><div class="result-stat"><small>RESULT</small><strong class="${correct && !timedOut ? 'result-good' : 'result-bad'}">${correct && !timedOut ? 'PASS' : timedOut ? 'TIMEOUT' : 'FAIL'}</strong></div><div class="result-stat"><small>TIME</small><strong>${formatMs(state.elapsedMs)}</strong></div><div class="result-stat"><small>RANK</small><strong class="result-rank ${rank.id}">${rankIconSvg(rank, 'mini')} ${escapeHtml(rank.name)}</strong></div><div class="result-stat"><small>CLEARS</small><strong>${displayedClears}</strong></div></div><p class="run-note">${correct && !timedOut ? `Solution accepted. ${score.newBest ? 'NEW PERSONAL BEST!' : 'Clear recorded.'}` : timedOut ? 'Timeout: no clear was added.' : 'The submitted code does not match the expected solution.'} ${rp.next ? `Còn ${rp.remaining} clear để lên ${rp.next.name}.` : ''}</p><div class="result-next-note"><span>NEW BOARD READY</span><strong>${escapeHtml(base.title)}</strong><small>Một variant khác đã được sinh ra cho lượt tiếp theo.</small></div>`;
     showToast(correct && !timedOut ? (score.newBest ? `NEW PB · ${formatMs(state.elapsedMs)}` : `CLEAR · ${formatMs(state.elapsedMs)}`) : timedOut ? 'TIMEOUT' : 'RUN FAILED', correct && !timedOut ? 'success' : 'error');
   }
 
@@ -872,7 +881,7 @@
     const user = state.currentUser;
     if (!user || !fbDb || !fbAuth?.currentUser) {
       showToast('Hãy đăng nhập Firebase để lưu run.', 'error');
-      return { newBest: false, totalCorrect: Number(user?.stats?.totalCorrect || 0) };
+      return { newBest: false, totalCorrect: totalCorrect(user) };
     }
 
     const uid = fbAuth.currentUser.uid;
@@ -887,7 +896,7 @@
     const cloudRunId = `${state.sessionId}_${runId}`;
     const userRef = fbDb.collection('users').doc(uid);
     const runRef = fbDb.collection('runs').doc(cloudRunId);
-    let result = { newBest: false, totalCorrect: Number(user.stats.totalCorrect || 0) };
+    let result = { newBest: false, totalCorrect: totalCorrect(user) };
 
     try {
       await fbDb.runTransaction(async tx => {
@@ -961,10 +970,10 @@
     state.currentUser = user;
     const bestForChallenge = state.challengeBase && user?.records?.[state.challengeBase.id] ? formatMs(user.records[state.challengeBase.id]) : (user ? bestOverall(user) : '—');
     if ($('bestStat')) $('bestStat').textContent = bestForChallenge;
-    if ($('runsStat')) $('runsStat').textContent = `${user ? user.stats.totalCorrect : 0} correct clears`;
+    if ($('runsStat')) $('runsStat').textContent = `${user ? totalCorrect(user) : 0} correct clears`;
     const rank = getRank(user);
     const rp = rankProgress(user);
-    if ($('rankChip')) $('rankChip').innerHTML = `<div class="rank-chip-left ${rank.id}"><span class="rank-chip-icon">${rankIconSvg(rank, 'mini')}</span><div><div class="rank-chip-name">${escapeHtml(rank.name)}</div><div class="rank-chip-count">${user ? user.stats.totalCorrect : 0} clears</div></div></div><span>→</span>`;
+    if ($('rankChip')) $('rankChip').innerHTML = `<div class="rank-chip-left ${rank.id}"><span class="rank-chip-icon">${rankIconSvg(rank, 'mini')}</span><div><div class="rank-chip-name">${escapeHtml(rank.name)}</div><div class="rank-chip-count">${user ? totalCorrect(user) : 0} clears</div></div></div><span>→</span>`;
     if ($('rankProgressText')) $('rankProgressText').textContent = rp.next ? `${rp.remaining} clears to ${rp.next.name}` : 'Max rank.';
     if ($('progressBar')) $('progressBar').style.width = `${Math.min(100, (state.elapsedMs / (state.challenge?.timeLimitMs || DEFAULT_TIME_MS)) * 100)}%`;
     if ($('currentStat')) $('currentStat').textContent = state.running ? 'RUNNING' : (state.elapsedMs ? formatMs(state.elapsedMs) : 'READY');
@@ -1254,8 +1263,9 @@
     const rank = profile.rank;
     const history = Array.isArray(user.history) ? user.history.slice(0, 8) : [];
     const best = bestOverall(user);
-    const successRate = user.stats.totalRuns ? Math.round((user.stats.totalCorrect / user.stats.totalRuns) * 100) : 0;
-    return `<div class="profile-backdrop" id="profileBackdrop"><div class="profile-modal" role="dialog" aria-modal="true"><div class="profile-topline"><span class="eyebrow">RUNNER PROFILE</span><button class="close-btn" id="profileCloseBtn">✕</button></div><div class="profile-hero ${rank.id}"><div class="profile-rank-icon">${rankIconSvg(rank, 'normal')}</div><div><div class="profile-name rank-text-${rank.id}">${escapeHtml(profile.name)}</div><div class="profile-rank-label">${rankIconSvg(rank, 'mini')} ${escapeHtml(rank.name)}</div></div></div><div class="profile-grid"><div><small>CLEARS</small><strong>${user.stats.totalCorrect}</strong></div><div><small>RUNS</small><strong>${user.stats.totalRuns}</strong></div><div><small>SUCCESS RATE</small><strong>${successRate}%</strong></div><div><small>BEST TIME</small><strong>${best}</strong></div></div><div class="profile-progress"><div><span>RANK PROGRESS</span><strong>${rankProgress(user).next ? `${rankProgress(user).remaining} to ${rankProgress(user).next.name}` : 'MAX RANK'}</strong></div><div class="progress-track"><span style="width:${rankProgress(user).pct}%"></span></div></div><div class="profile-history"><div class="profile-section-title">RECENT RUNS</div>${history.length ? history.map(item => `<div class="profile-history-row"><span class="history-result ${item.correct ? 'ok' : 'bad'}">${item.correct ? 'CLEAR' : item.timedOut ? 'TIMEOUT' : 'FAIL'}</span><span>${escapeHtml(item.title)}</span><span>${formatMs(item.ms)}</span></div>`).join('') : '<div class="ai-empty">Chưa có run nào.</div>'}</div>${state.currentUser?.key === profile.key ? '<div class="profile-actions"><button class="secondary-btn" id="profileSettingsBtn">⚙ Settings</button><button class="danger-btn" id="profileLogoutBtn">Đăng xuất</button></div>' : ''}</div></div>`;
+    const clears = totalCorrect(user);
+    const successRate = user.stats.totalRuns ? Math.round((clears / user.stats.totalRuns) * 100) : 0;
+    return `<div class="profile-backdrop" id="profileBackdrop"><div class="profile-modal" role="dialog" aria-modal="true"><div class="profile-topline"><span class="eyebrow">RUNNER PROFILE</span><button class="close-btn" id="profileCloseBtn">✕</button></div><div class="profile-hero ${rank.id}"><div class="profile-rank-icon">${rankIconSvg(rank, 'normal')}</div><div><div class="profile-name rank-text-${rank.id}">${escapeHtml(profile.name)}</div><div class="profile-rank-label">${rankIconSvg(rank, 'mini')} ${escapeHtml(rank.name)}</div></div></div><div class="profile-grid"><div><small>CLEARS</small><strong>${clears}</strong></div><div><small>RUNS</small><strong>${user.stats.totalRuns}</strong></div><div><small>SUCCESS RATE</small><strong>${successRate}%</strong></div><div><small>BEST TIME</small><strong>${best}</strong></div></div><div class="profile-progress"><div><span>RANK PROGRESS</span><strong>${rankProgress(user).next ? `${rankProgress(user).remaining} to ${rankProgress(user).next.name}` : 'MAX RANK'}</strong></div><div class="progress-track"><span style="width:${rankProgress(user).pct}%"></span></div></div><div class="profile-history"><div class="profile-section-title">RECENT RUNS</div>${history.length ? history.map(item => `<div class="profile-history-row"><span class="history-result ${item.correct ? 'ok' : 'bad'}">${item.correct ? 'CLEAR' : item.timedOut ? 'TIMEOUT' : 'FAIL'}</span><span>${escapeHtml(item.title)}</span><span>${formatMs(item.ms)}</span></div>`).join('') : '<div class="ai-empty">Chưa có run nào.</div>'}</div>${state.currentUser?.key === profile.key ? '<div class="profile-actions"><button class="secondary-btn" id="profileSettingsBtn">⚙ Settings</button><button class="danger-btn" id="profileLogoutBtn">Đăng xuất</button></div>' : ''}</div></div>`;
   }
 
   function openProfile(key, self = false) {
