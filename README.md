@@ -1,4 +1,4 @@
-# Bug Speedrunner — Firebase V2 Hardened
+# Bug Speedrunner
 
 Browser-only coding speedrun game by **HK1413**.
 
@@ -38,5 +38,6 @@ For a truly competitive leaderboard, authoritative scoring must happen on a trus
 - Platinum: 15
 - Legendary: 25
 - GOD: 40
+- Emperor: 60
 
 **Developed by HK1413.**
