@@ -56,6 +56,7 @@
   let fbAuth = null;
   let fbDb = null;
   let fbProvider = null;
+  const profileCreationTasks = new Map();
 
   const $ = id => document.getElementById(id);
   const view = $('appView');
@@ -200,25 +201,42 @@
 
   async function createCloudProfile(user, displayNameOverride = '') {
     if (!fbDb || !user) return;
-    const ref = fbDb.collection('users').doc(user.uid);
-    const existing = await ref.get();
-    if (existing.exists) {
-      if (displayNameOverride && existing.data()?.displayName !== displayNameOverride.slice(0, 20)) {
-        await ref.update({ displayName: displayNameOverride.slice(0, 20), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    const taskKey = user.uid;
+    if (profileCreationTasks.has(taskKey)) {
+      const profile = await profileCreationTasks.get(taskKey);
+      if (displayNameOverride && profile?.displayName !== displayNameOverride.slice(0, 20)) {
+        await fbDb.collection('users').doc(user.uid).update({ displayName: displayNameOverride.slice(0, 20), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
       }
-      return (await ref.get()).data();
+      return profile;
     }
-    const displayName = (displayNameOverride || user.displayName || user.email?.split('@')[0] || 'Runner').trim().slice(0, 20);
-    const profile = {
-      displayName,
-      email: user.email || '',
-      photoURL: user.photoURL || '',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      totalRuns: 0, totalCorrect: 0, bestTimeMs: null, hasClear: false,
-      records: {}, history: [], updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    await ref.set(profile);
-    return profile;
+    const ref = fbDb.collection('users').doc(user.uid);
+    const task = (async () => {
+      const existing = await ref.get();
+      if (existing.exists) {
+        if (displayNameOverride && existing.data()?.displayName !== displayNameOverride.slice(0, 20)) {
+          await ref.update({ displayName: displayNameOverride.slice(0, 20), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        }
+        return (await ref.get()).data();
+      }
+      const displayName = (displayNameOverride || user.displayName || user.email?.split('@')[0] || 'Runner').trim().slice(0, 20);
+      const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp();
+      const profile = {
+        displayName,
+        email: user.email || '',
+        photoURL: user.photoURL || '',
+        createdAt: serverTimestamp,
+        totalRuns: 0, totalCorrect: 0, bestTimeMs: null, hasClear: false,
+        records: {}, history: [], updatedAt: serverTimestamp
+      };
+      await ref.set(profile);
+      return profile;
+    })();
+    profileCreationTasks.set(taskKey, task);
+    try {
+      return await task;
+    } finally {
+      profileCreationTasks.delete(taskKey);
+    }
   }
 
   async function getCloudProfile() {
@@ -263,14 +281,6 @@
 
   function allChallenges() { return window.BUG_SPEEDRUNNER_CHALLENGES || []; }
   function challengeSet(language) { return allChallenges().filter(challenge => challenge.language === language); }
-
-  function dailyChallenge() {
-    const list = allChallenges(); if (!list.length) return null;
-    const now = new Date(); const key = `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`;
-    let hash = 2166136261;
-    for (let i = 0; i < key.length; i++) hash = Math.imul(hash ^ key.charCodeAt(i), 16777619);
-    return list[Math.abs(hash) % list.length];
-  }
 
   function randomSeed() {
     const cryptoObj = window.crypto;
@@ -326,16 +336,6 @@
 
   function allChallenges() { return window.BUG_SPEEDRUNNER_CHALLENGES || []; }
   function challengeSet(language) { return allChallenges().filter(challenge => challenge.language === language); }
-
-  function dailyChallenge() {
-    const list = allChallenges();
-    if (!list.length) return null;
-    const now = new Date();
-    const key = `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`;
-    let hash = 2166136261;
-    for (let i = 0; i < key.length; i++) hash = Math.imul(hash ^ key.charCodeAt(i), 16777619);
-    return list[Math.abs(hash) % list.length];
-  }
 
   function randomSeed() {
     const cryptoObj = window.crypto;
@@ -448,7 +448,6 @@
   function renderMenu() {
     const user = state.currentUser;
     const progress = rankProgress(user);
-    const daily = dailyChallenge();
     view.innerHTML = `
       <section class="view menu-view">
         <div class="menu-inner">
@@ -467,7 +466,6 @@
                 <div class="menu-stat"><small>BEST TIME</small><strong>${user ? bestOverall(user) : '—'}</strong></div>
                 <div class="menu-stat"><small>RUNS</small><strong>${user ? user.stats.totalRuns : 0}</strong></div>
               </div>
-              <div class="daily-strip" style="margin-top:16px"><strong>⚡ Daily Mission</strong><br><span>${daily ? `${escapeHtml(daily.title)} · ${LANGUAGES[daily.language].label}` : 'Loading challenge…'}</span></div>
             </div>
           </div>
           <div class="menu-grid">
@@ -477,7 +475,7 @@
             <button class="feature-card" id="menuAcademyBtn"><div class="feature-icon">🎓</div><h3>Beginner Academy</h3><p>Học cách nhìn bug nhanh, phím tắt IDE và tài nguyên lập trình miễn phí.</p><span class="feature-arrow">→</span></button>
           </div>
           <div class="menu-bottom">
-            <div class="daily-strip"><strong>💡 Quick Tip</strong><br><span>Rank cao không chỉ nhanh — hãy giữ tỷ lệ clear cao để leo bảng ổn định.</span></div>
+            <div class="daily-strip"><strong>💡 Quick Tip</strong><br><span>Mỗi lượt chơi chọn một challenge ngẫu nhiên trong ngôn ngữ đang dùng.</span></div>
             <div class="menu-footer-note">Developed by HK1413</div>
           </div>
         </div>
@@ -499,7 +497,7 @@
             <div class="section-label">LANGUAGE</div>
             <div class="field-block"><div class="select-wrap"><select id="languageSelect"></select><i data-lucide="chevron-down"></i></div></div>
             <div class="section-label" style="display:flex;justify-content:space-between"><span>CHALLENGES</span><span id="challengeCount">0/0</span></div>
-            <div class="challenge-tools"><button id="dailyBtn" class="small-tool">⚡ Daily</button><button id="randomBtn" class="small-tool">🎲 Random</button></div>
+            <div class="challenge-tools"><button id="randomBtn" class="small-tool">🎲 Random challenge</button></div>
             <input id="challengeSearch" class="challenge-search" placeholder="Search challenge..." autocomplete="off">
             <div id="challengeList" class="challenge-list"></div>
             <div class="side-card" style="margin-top:14px"><h3>SPEEDRUN RULE</h3><p class="run-note">Không thể chỉnh code trước khi Start Match. Mỗi match sinh một variant mới. Kết thúc run sẽ tự sinh board mới.</p></div>
@@ -640,8 +638,7 @@
     $('submitBtn').onclick = () => { if (state.running) finishRun('Manual submission.', false); };
     $('leaderboardSideBtn').onclick = () => go('leaderboard');
     $('settingsSideBtn').onclick = openSettings;
-    $('dailyBtn').onclick = () => selectChallengeObject(dailyChallenge());
-    $('randomBtn').onclick = () => { const list = allChallenges(); selectChallengeObject(list[Math.floor(Math.random() * list.length)]); };
+    $('randomBtn').onclick = () => selectRandomChallenge();
     $('challengeSearch').addEventListener('input', renderChallengeList);
     document.querySelectorAll('.panel-tab').forEach(btn => btn.onclick = () => switchPanel(btn.dataset.tab));
     $('languageSelect').onchange = () => { if (state.running) return; state.language = $('languageSelect').value; state.challengeIndex = 0; loadChallenge(); };
@@ -669,6 +666,14 @@
     state.challengeIndex = Math.max(0, challengeSet(state.language).findIndex(item => item.id === challenge.id));
     if ($('languageSelect')) $('languageSelect').value = state.language;
     loadChallenge();
+  }
+
+  function selectRandomChallenge(excludeId = state.challengeBase?.id) {
+    const list = challengeSet(state.language);
+    if (!list.length) return;
+    const choices = list.length > 1 ? list.filter(challenge => challenge.id !== excludeId) : list;
+    const challenge = choices[Math.floor(Math.random() * choices.length)];
+    selectChallengeObject(challenge);
   }
 
   function setReadOnly(value) {
@@ -725,7 +730,13 @@
 
   function prepareFreshVariantAfterFinish() {
     if (!state.challengeBase) return;
-    state.challenge = createVariant(state.challengeBase);
+    const completedId = state.challengeBase.id;
+    const list = challengeSet(state.language);
+    const choices = list.length > 1 ? list.filter(challenge => challenge.id !== completedId) : list;
+    const nextChallenge = choices[Math.floor(Math.random() * choices.length)];
+    state.challengeIndex = Math.max(0, list.findIndex(challenge => challenge.id === nextChallenge.id));
+    state.challengeBase = nextChallenge;
+    state.challenge = createVariant(nextChallenge);
     state.challengeVariantSeed = state.challenge.seed;
     state.elapsedMs = 0;
     state.running = false;
@@ -734,7 +745,7 @@
     updateTimer();
     configureCurrentEditor();
     updateActionButtons();
-    setOutput(`Previous run finished.\nFRESH VARIANT GENERATED: ${state.challenge.seed.slice(0, 9)}\nPress Start Match when ready.`);
+    setOutput(`Previous run finished.\nNEW RANDOM CHALLENGE: ${state.challengeBase.title}\nVariant: ${state.challenge.seed.slice(0, 9)}\nPress Start Match when ready.`);
     updateSpeedrunStats();
     renderChallengeList();
   }
@@ -771,6 +782,8 @@
   function startRun() {
     if (!state.currentUser) { showToast('Đăng nhập Firebase để chạy ranked speedrun.', 'error'); openAuth('login'); return; }
     if (!state.editor || !state.challengeBase || state.running || state.finishing) return;
+    selectRandomChallenge();
+    if (!state.challengeBase) return;
     state.practice = false;
     state.challenge = createVariant(state.challengeBase);
     state.challengeVariantSeed = state.challenge.seed;
@@ -1291,12 +1304,13 @@
   }
 
   function getEmbeddedSources() {
-    const node = $('embeddedSource');
-    if (node?.textContent.trim()) {
-      try { return Promise.resolve(JSON.parse(decodeURIComponent(escape(atob(node.textContent.trim()))))); } catch { /* fall through */ }
-    }
     const paths = ['style.css', 'app.js', 'challenges.js', 'firestore.rules'];
-    return Promise.all(paths.map(path => fetch(path, { cache: 'no-store' }).then(response => { if (!response.ok) throw new Error(`Cannot read ${path}`); return response.text(); }))).then(([style, app, challenges, rules]) => ({ style, app, challenges, rules }));
+    const fetchCurrentSources = () => Promise.all(paths.map(path => fetch(path, { cache: 'no-store' }).then(response => { if (!response.ok) throw new Error(`Cannot read ${path}`); return response.text(); }))).then(([style, app, challenges, rules]) => ({ style, app, challenges, rules }));
+    return fetchCurrentSources().catch(error => {
+      const node = $('embeddedSource');
+      if (!node?.textContent.trim()) throw error;
+      try { return JSON.parse(decodeURIComponent(escape(atob(node.textContent.trim())))); } catch { throw error; }
+    });
   }
 
   function buildReadme() {
