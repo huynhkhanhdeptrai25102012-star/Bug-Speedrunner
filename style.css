@@ -187,6 +187,11 @@ a{color:inherit}
 .cloud-status[data-state="error"] { color: var(--red); }
 .cloud-status[data-state="offline"] { color: var(--muted); }
 
+.failure-guide{margin-top:14px;border:1px solid rgba(255,123,141,.25);border-radius:12px;background:rgba(255,80,100,.05);padding:11px 13px;color:#c5d0df;font-size:12px}
+.failure-guide summary{cursor:pointer;color:#ffb0bc;font-weight:800}
+.failure-guide ul{margin:10px 0;padding-left:19px;color:#aebdce;line-height:1.7}
+.failure-guide pre{max-height:220px;overflow:auto;margin:10px 0 0;padding:11px;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:#080d13;color:#b9f5e2;font:11px/1.55 var(--mono);white-space:pre-wrap}
+
 /* Rank identity effects */
 .rank-icon.emperor,.rank-mini.emperor,.rank-chip-left.emperor,.menu-rank-value.emperor{color:#d8c5ff;filter:drop-shadow(0 0 5px rgba(119,237,199,.6))}
 .rank-text-emperor{background:linear-gradient(90deg,#d3a9ff,#8ff4d5,#e4c2ff);background-clip:text;-webkit-background-clip:text;color:transparent;text-shadow:0 0 16px rgba(173,231,211,.35)}
