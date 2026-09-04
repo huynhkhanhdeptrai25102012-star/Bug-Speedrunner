@@ -68,7 +68,7 @@ service cloud.firestore {
       return run.correct
         ? (resource.data.bestTimeMs == null
             ? request.resource.data.bestTimeMs == run.timeMs
-            : request.resource.data.bestTimeMs <= resource.data.bestTimeMs)
+            : request.resource.data.bestTimeMs == (run.timeMs < resource.data.bestTimeMs ? run.timeMs : resource.data.bestTimeMs))
         : request.resource.data.bestTimeMs == resource.data.bestTimeMs;
     }
 
