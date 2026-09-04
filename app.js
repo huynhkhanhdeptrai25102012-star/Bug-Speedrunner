@@ -116,6 +116,10 @@
     return Number(user?.totalCorrect ?? user?.stats?.totalCorrect ?? 0);
   }
 
+  function getTotalRuns(user) {
+    return Number(user?.totalRuns ?? user?.stats?.totalRuns ?? 0);
+  }
+
   function authEnvironmentMessage() {
     if (location.protocol === 'file:') {
       return 'Firebase Authentication cần mở app qua http:// hoặc https://, không thể đăng nhập khi mở trực tiếp file HTML.';
@@ -303,6 +307,40 @@
     return result;
   }
 
+  function addVariantBugs(id, code) {
+    let result = String(code);
+    const mutations = {
+      'js-inventory-01': [
+        ['const shipping = subtotal >= 200 ? 0 : 12;', 'const shipping = subtotal > 200 ? 0 : 12;']
+      ],
+      'js-login-02': [
+        ['failed++;', 'failed += 2;']
+      ],
+      'html-profile-01': [
+        ['</ul>', '</section>']
+      ],
+      'html-form-02': [
+        ['<input id="email" name="email" type="email" required>', '<input id="email" name="email" type="text" required>']
+      ],
+      'cpp-average-01': [
+        ['if (abs(result - expected) < 0.0001 && peak == 24.00)', 'if (abs(result - expected) < 0.0001 && peak != 24.00)']
+      ],
+      'cpp-stack-02': [
+        ['if (stack.empty()) {', 'if (!stack.empty()) {']
+      ],
+      'csharp-grade-01': [
+        ['if (score >= 60)', 'if (score > 60)']
+      ],
+      'csharp-null-02': [
+        ['for (int i = 0; i < names.Length; i++)', 'for (int i = 0; i <= names.Length; i++)']
+      ]
+    };
+    for (const [from, to] of mutations[id] || []) {
+      if (result.includes(from)) result = result.replace(from, to);
+    }
+    return result;
+  }
+
   function getRank(user) {
     const clears = totalCorrect(user);
     let result = RANKS[0];
@@ -413,8 +451,9 @@
       ]
     };
 
+    variant.broken = addVariantBugs(base.id, base.broken);
     if (replacements[base.id]) {
-      variant.broken = replaceIdentifierPair(base.broken, replacements[base.id]);
+      variant.broken = replaceIdentifierPair(variant.broken, replacements[base.id]);
       variant.solution = replaceIdentifierPair(base.solution, replacements[base.id]);
     }
 
@@ -427,6 +466,20 @@
     variant.broken = `${variant.broken}${marker}`;
     variant.solution = `${variant.solution}${marker}`;
     return variant;
+  }
+
+  function variantBugNote(base) {
+    const extra = {
+      'js-inventory-01': 'Kiểm tra thêm điều kiện miễn phí vận chuyển ở ngưỡng biên.',
+      'js-login-02': 'Bộ đếm thất bại đang bị cộng sai số lần.',
+      'html-profile-01': 'Cấu trúc danh sách đang đóng sai phần tử HTML.',
+      'html-form-02': 'Kiểu dữ liệu của ô email không còn đúng yêu cầu.',
+      'cpp-average-01': 'Điều kiện kiểm tra giá trị cực đại đang bị đảo.',
+      'cpp-stack-02': 'Điều kiện kiểm tra stack rỗng đang bị đảo.',
+      'csharp-grade-01': 'Điều kiện biên của điểm số đang bị đổi sang so sánh nghiêm ngặt.',
+      'csharp-null-02': 'Vòng lặp đang truy cập vượt quá phần tử cuối.'
+    };
+    return [...(base.bugs || []).map(bug => bug.reason), extra[base.id]].filter(Boolean);
   }
 
   function routeFromHash() {
@@ -851,7 +904,7 @@
     });
 
     setOutput(`${timedOut ? 'TIMEOUT' : 'SUBMITTED'}\nTime: ${formatMs(runSnapshot.elapsedMs)}\nResult: ${outcome}\n${reason}`);
-    renderResult(correct, timedOut, score, runSnapshot.challengeBase);
+    renderResult(correct, timedOut, score, runSnapshot.challengeBase, runSnapshot.challenge);
     switchPanel('results');
 
     // The editor gets a guaranteed fresh board immediately after the run is finalized.
@@ -867,13 +920,14 @@
     await requestAiAnalysis({ challenge: runSnapshot.challenge, original: runSnapshot.challenge.broken, player: runSnapshot.player, answer: runSnapshot.challenge.solution, result: outcome, timedOut, aiRequestId });
   }
 
-  function renderResult(correct, timedOut, score, base) {
+  function renderResult(correct, timedOut, score, base, completedChallenge) {
     const user = state.currentUser || currentUser();
     const displayedClears = score?.totalCorrect ?? totalCorrect(user);
     const resultUser = user ? { ...user, totalCorrect: displayedClears } : user;
     const rank = getRank(resultUser);
     const rp = rankProgress(resultUser);
-    $('resultsBody').innerHTML = `<div class="result-card"><div class="result-stat"><small>RESULT</small><strong class="${correct && !timedOut ? 'result-good' : 'result-bad'}">${correct && !timedOut ? 'PASS' : timedOut ? 'TIMEOUT' : 'FAIL'}</strong></div><div class="result-stat"><small>TIME</small><strong>${formatMs(state.elapsedMs)}</strong></div><div class="result-stat"><small>RANK</small><strong class="result-rank ${rank.id}">${rankIconSvg(rank, 'mini')} ${escapeHtml(rank.name)}</strong></div><div class="result-stat"><small>CLEARS</small><strong>${displayedClears}</strong></div></div><p class="run-note">${correct && !timedOut ? `Solution accepted. ${score.newBest ? 'NEW PERSONAL BEST!' : 'Clear recorded.'}` : timedOut ? 'Timeout: no clear was added.' : 'The submitted code does not match the expected solution.'} ${rp.next ? `Còn ${rp.remaining} clear để lên ${rp.next.name}.` : ''}</p><div class="result-next-note"><span>NEW BOARD READY</span><strong>${escapeHtml(base.title)}</strong><small>Một variant khác đã được sinh ra cho lượt tiếp theo.</small></div>`;
+    const failureGuide = !correct || timedOut ? `<details class="failure-guide"><summary>Những lỗi cần kiểm tra</summary><ul>${variantBugNote(base).map(note => `<li>${escapeHtml(note)}</li>`).join('')}</ul><pre>${escapeHtml(completedChallenge?.solution || '')}</pre></details>` : '';
+    $('resultsBody').innerHTML = `<div class="result-card"><div class="result-stat"><small>RESULT</small><strong class="${correct && !timedOut ? 'result-good' : 'result-bad'}">${correct && !timedOut ? 'PASS' : timedOut ? 'TIMEOUT' : 'FAIL'}</strong></div><div class="result-stat"><small>TIME</small><strong>${formatMs(state.elapsedMs)}</strong></div><div class="result-stat"><small>RANK</small><strong class="result-rank ${rank.id}">${rankIconSvg(rank, 'mini')} ${escapeHtml(rank.name)}</strong></div><div class="result-stat"><small>CLEARS</small><strong>${displayedClears}</strong></div></div><p class="run-note">${correct && !timedOut ? `Solution accepted. ${score.newBest ? 'NEW PERSONAL BEST!' : 'Clear recorded.'}` : timedOut ? 'Timeout: no clear was added.' : 'The submitted code does not match the expected solution.'} ${rp.next ? `Còn ${rp.remaining} clear để lên ${rp.next.name}.` : ''}</p>${failureGuide}<div class="result-next-note"><span>NEW BOARD READY</span><strong>${escapeHtml(base.title)}</strong><small>Một variant khác đã được sinh ra cho lượt tiếp theo.</small></div>`;
     showToast(correct && !timedOut ? (score.newBest ? `NEW PB · ${formatMs(state.elapsedMs)}` : `CLEAR · ${formatMs(state.elapsedMs)}`) : timedOut ? 'TIMEOUT' : 'RUN FAILED', correct && !timedOut ? 'success' : 'error');
   }
 
@@ -896,7 +950,7 @@
     const cloudRunId = `${state.sessionId}_${runId}`;
     const userRef = fbDb.collection('users').doc(uid);
     const runRef = fbDb.collection('runs').doc(cloudRunId);
-    let result = { newBest: false, totalCorrect: totalCorrect(user) };
+    let result = { newBest: false, totalRuns: getTotalRuns(user), totalCorrect: totalCorrect(user) };
 
     try {
       await fbDb.runTransaction(async tx => {
@@ -909,8 +963,8 @@
         const newBest = Boolean(correct) && (!previous || cleanMs < previous);
         if (newBest) records[challengeId] = cleanMs;
 
-        const totalRuns = existing.stats.totalRuns + 1;
-        const totalCorrect = existing.stats.totalCorrect + (correct ? 1 : 0);
+        const nextTotalRuns = getTotalRuns(existing) + 1;
+        const totalCorrect = totalCorrect(existing) + (correct ? 1 : 0);
         const bestValues = Object.values(records).map(Number).filter(value => value > 0);
         const bestTimeMs = bestValues.length ? Math.min(...bestValues) : null;
         const historyItem = {
@@ -936,7 +990,7 @@
           displayName: existing.displayName || user.name || 'Runner',
           email: existing.email || fbAuth.currentUser.email || '',
           photoURL: existing.photoURL || fbAuth.currentUser.photoURL || '',
-          totalRuns,
+          totalRuns: nextTotalRuns,
           totalCorrect,
           bestTimeMs,
           hasClear: totalCorrect > 0,
@@ -945,10 +999,22 @@
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
 
-        result = { newBest, totalCorrect };
+        result = { newBest, totalRuns: nextTotalRuns, totalCorrect };
       });
-      state.currentUser = await getCloudProfile();
-      if (state.currentUser) state.leaderboardUsers.set(uid, ensureUserShape(state.currentUser));
+      const savedProfile = await getCloudProfile();
+      if (savedProfile) {
+        state.currentUser = savedProfile;
+        state.leaderboardUsers.set(uid, ensureUserShape(savedProfile));
+      } else {
+        state.currentUser = {
+          ...user,
+          totalRuns: result.totalRuns,
+          totalCorrect: result.totalCorrect,
+          stats: { ...user.stats, totalRuns: result.totalRuns, totalCorrect: result.totalCorrect }
+        };
+        state.leaderboardUsers.set(uid, ensureUserShape(state.currentUser));
+      }
+      if (state.route === 'leaderboard') renderLeaderboard();
       state.cloudStatus = 'online';
       return result;
     } catch (error) {
