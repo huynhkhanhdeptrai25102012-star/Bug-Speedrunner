@@ -123,6 +123,36 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function hasAdminRole() {
+      return signedIn() && (request.auth.token.role == 'admin' || request.auth.token.role == 'owner');
+    }
+
+    function isOwner() {
+      return signedIn() && request.auth.token.role == 'owner';
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, update: if hasAdminRole();
+      allow delete: if isOwner();
+    }
+
+    match /eventResults/{resultId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.eventId is string
+        && request.resource.data.timeMs is number
+        && request.resource.data.timeMs >= 0
+        && request.resource.data.timeMs <= 600000
+        && request.resource.data.completed is bool
+        && request.resource.data.challenges is number;
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
     match /runs/{runId} {
       // Run records are private to their owner. They are immutable after creation.
       allow read: if signedIn() && resource.data.uid == request.auth.uid;
