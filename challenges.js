@@ -127,5 +127,142 @@ window.BUG_SPEEDRUNNER_CHALLENGES = [
         "concept": "Use null-safe access or check for null before calling instance methods."
       }
     ]
-  }
+  },
+{
+  "id": "js-cart-average-03",
+  "language": "javascript",
+  "title": "Cart Average",
+  "difficulty": "Easy",
+  "timeLimitMs": 165000,
+  "broken": "const prices = [12, 18, 25, 31, 44];\n\nfunction average(values) {\n  let sum = 0;\n  for (const value of values) sum += value;\n  return sum / (values.length - 1);\n}\n\nconst result = average(prices);\nconsole.log('AVERAGE:', result.toFixed(2));\nif (Math.abs(result - 26) < 0.001) console.log('CHECK: PASS');\nelse console.log('CHECK: FAIL');",
+  "solution": "const prices = [12, 18, 25, 31, 44];\n\nfunction average(values) {\n  let sum = 0;\n  for (const value of values) sum += value;\n  return sum / values.length;\n}\n\nconst result = average(prices);\nconsole.log('AVERAGE:', result.toFixed(2));\nif (Math.abs(result - 26) < 0.001) console.log('CHECK: PASS');\nelse console.log('CHECK: FAIL');",
+  "bugs": [
+    {
+      "line": 6,
+      "reason": "Phép chia dùng length - 1 làm sai mẫu số của trung bình cộng.",
+      "concept": "Trung bình cộng phải chia cho đúng số phần tử."
+    }
+  ],
+  "description": "Sửa phép tính trung bình của một danh sách giá."
+},
+{
+  "id": "js-titlecase-04",
+  "language": "javascript",
+  "title": "Titlecase Filter",
+  "difficulty": "Medium",
+  "timeLimitMs": 165000,
+  "broken": "const names = ['luna', 'neo', 'rIN', '  hk  '];\n\nfunction normalizeName(name) {\n  const cleaned = name.trim();\n  return cleaned.charAt(0).toLowerCase() + cleaned.slice(1).toLowerCase();\n}\n\nconst result = names.map(normalizeName);\nconsole.log(result.join('|'));\nif (result.join('|') === 'Luna|Neo|Rin|Hk') console.log('CHECK: PASS');\nelse console.log('CHECK: FAIL');",
+  "solution": "const names = ['luna', 'neo', 'rIN', '  hk  '];\n\nfunction normalizeName(name) {\n  const cleaned = name.trim();\n  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();\n}\n\nconst result = names.map(normalizeName);\nconsole.log(result.join('|'));\nif (result.join('|') === 'Luna|Neo|Rin|Hk') console.log('CHECK: PASS');\nelse console.log('CHECK: FAIL');",
+  "bugs": [
+    {
+      "line": 6,
+      "reason": "Ký tự đầu tiên bị chuyển thành lowercase nên tên không được chuẩn hóa Title Case.",
+      "concept": "Title Case cần uppercase ký tự đầu và lowercase phần còn lại."
+    }
+  ],
+  "description": "Chuẩn hóa tên hiển thị thành Title Case."
+},
+{
+  "id": "html-table-03",
+  "language": "html",
+  "title": "Score Table",
+  "difficulty": "Easy",
+  "timeLimitMs": 150000,
+  "broken": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Scores</title></head>\n<body>\n<table>\n  <caption>Speedrun Scores</caption>\n  <thead><tr><th>Runner</th><th>Score</th></tr></thead>\n  <tbody>\n    <tr><td>Rin</td><td>980</td></tr>\n    <tr><td>Kai</td><td>920</td></tr>\n  </tbody>\n</table>\n</body></html>",
+  "solution": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Scores</title></head>\n<body>\n<table>\n  <caption>Speedrun Scores</caption>\n  <thead><tr><th scope=\"col\">Runner</th><th scope=\"col\">Score</th></tr></thead>\n  <tbody>\n    <tr><td>Rin</td><td>980</td></tr>\n    <tr><td>Kai</td><td>920</td></tr>\n  </tbody>\n</table>\n</body></html>",
+  "bugs": [
+    {
+      "line": 6,
+      "reason": "Table headers thiếu scope=col nên không mô tả rõ cột cho trình đọc màn hình.",
+      "concept": "Header cell của cột nên khai báo scope=col."
+    }
+  ],
+  "description": "Sửa semantic accessibility cho bảng điểm."
+},
+{
+  "id": "html-navigation-04",
+  "language": "html",
+  "title": "Navigation Landmark",
+  "difficulty": "Medium",
+  "timeLimitMs": 150000,
+  "broken": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Arena</title></head>\n<body>\n<div class=\"site-nav\">\n  <a href=\"#home\">Home</a>\n  <a href=\"#runs\">Runs</a>\n  <a href=\"#rank\">Rank</a>\n</div>\n<main id=\"home\"><h1>Bug Speedrunner</h1></main>\n</body></html>",
+  "solution": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Arena</title></head>\n<body>\n<nav aria-label=\"Primary\">\n  <a href=\"#home\">Home</a>\n  <a href=\"#runs\">Runs</a>\n  <a href=\"#rank\">Rank</a>\n</nav>\n<main id=\"home\"><h1>Bug Speedrunner</h1></main>\n</body></html>",
+  "bugs": [
+    {
+      "line": 5,
+      "reason": "Thanh điều hướng đang dùng div thay vì landmark nav có nhãn truy cập.",
+      "concept": "Dùng phần tử nav cho nhóm liên kết điều hướng chính."
+    }
+  ],
+  "description": "Biến thanh điều hướng thành semantic landmark."
+},
+{
+  "id": "cpp-even-sum-03",
+  "language": "cpp",
+  "title": "Even Sum",
+  "difficulty": "Easy",
+  "timeLimitMs": 165000,
+  "broken": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    vector<int> values{4, 7, 10, 13, 16, 21};\n    int sum = 0;\n    for (int value : values) {\n        if (value % 2 != 0) sum += value;\n    }\n    cout << sum << \"\\n\";\n    cout << (sum == 30 ? \"CHECK: PASS\\n\" : \"CHECK: FAIL\\n\");\n}",
+  "solution": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    vector<int> values{4, 7, 10, 13, 16, 21};\n    int sum = 0;\n    for (int value : values) {\n        if (value % 2 == 0) sum += value;\n    }\n    cout << sum << \"\\n\";\n    cout << (sum == 30 ? \"CHECK: PASS\\n\" : \"CHECK: FAIL\\n\");\n}",
+  "bugs": [
+    {
+      "line": 9,
+      "reason": "Điều kiện đang chọn số lẻ thay vì số chẵn.",
+      "concept": "Số chẵn có phần dư 0 khi chia cho 2."
+    }
+  ],
+  "description": "Tính tổng các số chẵn trong vector."
+},
+{
+  "id": "cpp-palindrome-04",
+  "language": "cpp",
+  "title": "Palindrome Check",
+  "difficulty": "Medium",
+  "timeLimitMs": 175000,
+  "broken": "#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    string text = \"level\";\n    bool ok = true;\n    for (size_t i = 0; i < text.size() / 2; ++i) {\n        if (text[i] == text[text.size() - 1 - i]) {\n            ok = false;\n            break;\n        }\n    }\n    cout << (ok ? \"CHECK: PASS\\n\" : \"CHECK: FAIL\\n\");\n}",
+  "solution": "#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    string text = \"level\";\n    bool ok = true;\n    for (size_t i = 0; i < text.size() / 2; ++i) {\n        if (text[i] != text[text.size() - 1 - i]) {\n            ok = false;\n            break;\n        }\n    }\n    cout << (ok ? \"CHECK: PASS\\n\" : \"CHECK: FAIL\\n\");\n}",
+  "bugs": [
+    {
+      "line": 9,
+      "reason": "Điều kiện đánh dấu fail khi hai ký tự trùng nhau thay vì khi chúng khác nhau.",
+      "concept": "Palindrome chỉ sai khi một cặp đối xứng khác nhau."
+    }
+  ],
+  "description": "Kiểm tra chuỗi palindrome bằng hai đầu."
+},
+{
+  "id": "csharp-invoice-03",
+  "language": "csharp",
+  "title": "Invoice Total",
+  "difficulty": "Easy",
+  "timeLimitMs": 165000,
+  "broken": "using System;\n\nclass Program\n{\n    static decimal Total(decimal price, int quantity, decimal tax)\n    {\n        decimal subtotal = price * quantity;\n        return subtotal - subtotal * tax;\n    }\n\n    static void Main()\n    {\n        decimal total = Total(40m, 3, 0.10m);\n        Console.WriteLine(total);\n        Console.WriteLine(total == 132m ? \"CHECK: PASS\" : \"CHECK: FAIL\");\n    }\n}",
+  "solution": "using System;\n\nclass Program\n{\n    static decimal Total(decimal price, int quantity, decimal tax)\n    {\n        decimal subtotal = price * quantity;\n        return subtotal + subtotal * tax;\n    }\n\n    static void Main()\n    {\n        decimal total = Total(40m, 3, 0.10m);\n        Console.WriteLine(total);\n        Console.WriteLine(total == 132m ? \"CHECK: PASS\" : \"CHECK: FAIL\");\n    }\n}",
+  "bugs": [
+    {
+      "line": 7,
+      "reason": "Thuế đang bị trừ khỏi subtotal thay vì cộng vào hóa đơn.",
+      "concept": "Tổng sau thuế phải bằng subtotal + tax amount."
+    }
+  ],
+  "description": "Tính tổng hóa đơn gồm thuế."
+},
+{
+  "id": "csharp-temperature-04",
+  "language": "csharp",
+  "title": "Temperature Convert",
+  "difficulty": "Medium",
+  "timeLimitMs": 165000,
+  "broken": "using System;\n\nclass Program\n{\n    static double ToCelsius(double fahrenheit)\n    {\n        return (fahrenheit * 9.0 / 5.0) + 32.0;\n    }\n\n    static void Main()\n    {\n        double result = ToCelsius(68);\n        Console.WriteLine(result.ToString(\"0.00\"));\n        Console.WriteLine(Math.Abs(result - 20.0) < 0.001 ? \"CHECK: PASS\" : \"CHECK: FAIL\");\n    }\n}",
+  "solution": "using System;\n\nclass Program\n{\n    static double ToCelsius(double fahrenheit)\n    {\n        return (fahrenheit - 32.0) * 5.0 / 9.0;\n    }\n\n    static void Main()\n    {\n        double result = ToCelsius(68);\n        Console.WriteLine(result.ToString(\"0.00\"));\n        Console.WriteLine(Math.Abs(result - 20.0) < 0.001 ? \"CHECK: PASS\" : \"CHECK: FAIL\");\n    }\n}",
+  "bugs": [
+    {
+      "line": 6,
+      "reason": "Công thức đang thực hiện chiều ngược lại và cộng 32 thay vì trừ 32 rồi nhân 5/9.",
+      "concept": "Celsius = (Fahrenheit - 32) × 5/9."
+    }
+  ],
+  "description": "Chuyển đổi Fahrenheit sang Celsius đúng công thức."
+}
 ];
+
