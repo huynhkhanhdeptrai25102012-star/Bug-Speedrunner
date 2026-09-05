@@ -10,11 +10,21 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function hasAdminRole() {
+      return signedIn() && (request.auth.token.role == 'admin' || request.auth.token.role == 'owner');
+    }
+
+    function isOwner() {
+      return signedIn() && request.auth.token.role == 'owner';
+    }
+
     function userKeysAreValid() {
       return request.resource.data.keys().hasOnly([
         'displayName', 'email', 'photoURL', 'createdAt',
         'totalRuns', 'totalCorrect', 'bestTimeMs', 'hasClear',
-        'records', 'history', 'updatedAt'
+        'records', 'history', 'updatedAt',
+        'titles', 'achievements', 'equippedTitle', 'equippedRank',
+        'moderation', 'roleLabel'
       ]);
     }
 
@@ -72,8 +82,33 @@ service cloud.firestore {
         : request.resource.data.bestTimeMs == resource.data.bestTimeMs;
     }
 
+    function eventBlockedForCurrentUser() {
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('moderation', {}).get('eventBlocked', false) == true;
+    }
+
+    function leaderboardBlockedForCurrentUser() {
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('moderation', {}).get('leaderboardBlocked', false) == true;
+    }
+
+    function equippedRankAllowed(uid) {
+      let r = request.resource.data.equippedRank;
+      let clears = resource.data.totalCorrect;
+      return r == 'bronze'
+        || (r == 'silver' && clears >= 5)
+        || (r == 'gold' && clears >= 8)
+        || (r == 'platinum' && clears >= 15)
+        || (r == 'diamond' && clears >= 20)
+        || (r == 'legendary' && clears >= 25)
+        || (r == 'ascendant' && clears >= 32)
+        || (r == 'god' && clears >= 40)
+        || (r == 'immortal' && clears >= 55)
+        || (r == 'orbit' && clears >= 72)
+        || (r == 'emperor' && clears >= 90)
+        || (r == 'admin-special' && (request.auth.token.role == 'admin' || request.auth.token.role == 'owner'))
+        || (r == 'cane' && request.auth.token.role == 'owner');
+    }
+
     match /users/{uid} {
-      // Leaderboard/profile data is intentionally public. Do not put secrets in this document.
       allow read: if true;
 
       allow create: if ownUser(uid)
@@ -87,14 +122,15 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
-      // Ranked/stat update: must be atomic with creation of a matching immutable run document.
+      // Ordinary self-service updates: profile fields only or an atomic ranked run update.
       allow update: if ownUser(uid)
         && userKeysAreValid()
         && request.resource.data.email == resource.data.email
         && request.resource.data.updatedAt == request.time
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'displayName', 'photoURL', 'totalRuns', 'totalCorrect',
-          'bestTimeMs', 'hasClear', 'records', 'history', 'updatedAt'
+          'bestTimeMs', 'hasClear', 'records', 'history', 'updatedAt',
+          'equippedTitle', 'equippedRank'
         ])
         && (
           (
@@ -105,6 +141,7 @@ service cloud.firestore {
             && runCountersMatch(uid)
             && recordDeltaIsValid()
             && bestTimeDeltaIsValid()
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['equippedRank']) || equippedRankAllowed(uid))
           )
           ||
           (
@@ -114,47 +151,40 @@ service cloud.firestore {
             && request.resource.data.hasClear == resource.data.hasClear
             && request.resource.data.records == resource.data.records
             && request.resource.data.history == resource.data.history
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'displayName', 'photoURL', 'updatedAt'
-            ])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['equippedRank']) || equippedRankAllowed(uid))
           )
         );
 
-      allow delete: if false;
-    }
+      // Owner-only moderation/management fields. Stats themselves cannot be edited here except explicitly reset by Owner UI.
+      allow update: if isOwner()
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'titles', 'achievements', 'equippedTitle', 'equippedRank', 'moderation', 'roleLabel',
+          'displayName', 'photoURL', 'totalRuns', 'totalCorrect', 'bestTimeMs', 'hasClear', 'records', 'history', 'updatedAt'
+        ])
+        && (
+          request.resource.data.titles != resource.data.titles
+          || request.resource.data.achievements != resource.data.achievements
+          || request.resource.data.equippedTitle != resource.data.equippedTitle
+          || request.resource.data.equippedRank != resource.data.equippedRank
+          || request.resource.data.moderation != resource.data.moderation
+          || request.resource.data.roleLabel != resource.data.roleLabel
+          || (
+            request.resource.data.totalRuns == 0
+            && request.resource.data.totalCorrect == 0
+            && request.resource.data.bestTimeMs == null
+            && request.resource.data.hasClear == false
+            && request.resource.data.records.size() == 0
+            && request.resource.data.history.size() == 0
+          )
+        )
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['equippedRank']) || equippedRankAllowed(uid));
 
-    function hasAdminRole() {
-      return signedIn() && (request.auth.token.role == 'admin' || request.auth.token.role == 'owner');
-    }
-
-    function isOwner() {
-      return signedIn() && request.auth.token.role == 'owner';
-    }
-
-    match /events/{eventId} {
-      allow read: if true;
-      allow create, update: if hasAdminRole();
-      allow delete: if isOwner();
-    }
-
-    match /eventResults/{resultId} {
-      allow read: if true;
-      allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.eventId is string
-        && request.resource.data.timeMs is number
-        && request.resource.data.timeMs >= 0
-        && request.resource.data.timeMs <= 600000
-        && request.resource.data.completed is bool
-        && request.resource.data.challenges is number;
-      allow update: if signedIn()
-        && resource.data.uid == request.auth.uid
-        && request.resource.data.uid == request.auth.uid;
       allow delete: if false;
     }
 
     match /runs/{runId} {
-      // Run records are private to their owner. They are immutable after creation.
       allow read: if signedIn() && resource.data.uid == request.auth.uid;
 
       allow create: if signedIn()
@@ -175,6 +205,67 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
 
       allow update, delete: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if hasAdminRole();
+      allow update: if hasAdminRole()
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.version >= resource.data.version
+        && (
+          resource.data.status == request.resource.data.status
+          || (resource.data.status == 'DRAFT' && (request.resource.data.status == 'PUBLISHED' || request.resource.data.status == 'DRAFT'))
+          || (resource.data.status == 'PUBLISHED' && request.resource.data.status == 'LIVE')
+          || (resource.data.status == 'LIVE' && request.resource.data.status == 'CLOSED' && isOwner())
+          || (resource.data.status == 'CLOSED' && request.resource.data.status == 'ANNOUNCED')
+          || (resource.data.status == 'ANNOUNCED' && request.resource.data.status == 'ARCHIVED')
+        );
+      allow delete: if isOwner();
+    }
+
+    match /eventResults/{resultId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.eventId is string
+        && request.resource.data.timeMs is number
+        && request.resource.data.timeMs >= 0
+        && request.resource.data.timeMs <= 600000
+        && request.resource.data.completed is bool
+        && request.resource.data.challenges is number
+        && !eventBlockedForCurrentUser()
+        && !leaderboardBlockedForCurrentUser()
+        && get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.status == 'LIVE';
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.eventId == resource.data.eventId
+        && request.resource.data.timeMs <= resource.data.timeMs
+        && (!resource.data.completed || request.resource.data.completed)
+        && request.resource.data.updatedAt == request.time
+        && !eventBlockedForCurrentUser()
+        && get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.status == 'LIVE';
+      allow delete: if false;
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow create, update: if hasAdminRole();
+      allow delete: if isOwner();
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isOwner();
+      allow create: if hasAdminRole()
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /adminRegistry/{uid} {
+      allow read: if isOwner();
+      allow create, update, delete: if isOwner();
     }
   }
 }
