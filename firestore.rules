@@ -1,0 +1,180 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownUser(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function userKeysAreValid() {
+      return request.resource.data.keys().hasOnly([
+        'displayName', 'email', 'photoURL', 'createdAt',
+        'totalRuns', 'totalCorrect', 'bestTimeMs', 'hasClear',
+        'records', 'history', 'updatedAt'
+      ]);
+    }
+
+    function runDoc(runId) {
+      return getAfter(/databases/$(database)/documents/runs/$(runId)).data;
+    }
+
+    function runExists(runId) {
+      return getAfter(/databases/$(database)/documents/runs/$(runId)).exists();
+    }
+
+    function runMatchesUser(uid) {
+      let runId = request.resource.data.history[0].runId;
+      let run = runDoc(runId);
+      return runExists(runId)
+        && run.uid == uid
+        && run.timeMs >= 0
+        && run.timeMs <= 180000
+        && run.createdAt == request.time
+        && run.correct is bool
+        && run.timedOut is bool
+        && run.challengeId is string
+        && run.challengeTitle is string
+        && run.language is string
+        && run.variantId is string
+        && request.resource.data.history[0].runId == runId
+        && request.resource.data.history[0].challengeId == run.challengeId
+        && request.resource.data.history[0].ms == run.timeMs
+        && request.resource.data.history[0].correct == run.correct
+        && request.resource.data.history[0].timedOut == run.timedOut;
+    }
+
+    function runCountersMatch(uid) {
+      let run = runDoc(request.resource.data.history[0].runId);
+      return request.resource.data.totalRuns == resource.data.totalRuns + 1
+        && request.resource.data.totalCorrect == resource.data.totalCorrect + (run.correct ? 1 : 0)
+        && request.resource.data.hasClear == (request.resource.data.totalCorrect > 0);
+    }
+
+    function recordDeltaIsValid() {
+      let run = runDoc(request.resource.data.history[0].runId);
+      let oldRecord = resource.data.records.get(run.challengeId, 0);
+      let newRecord = request.resource.data.records.get(run.challengeId, 0);
+      return run.correct
+        ? (newRecord == run.timeMs || newRecord == oldRecord)
+        : newRecord == oldRecord;
+    }
+
+    function bestTimeDeltaIsValid() {
+      let run = runDoc(request.resource.data.history[0].runId);
+      return run.correct
+        ? (resource.data.bestTimeMs == null
+            ? request.resource.data.bestTimeMs == run.timeMs
+            : request.resource.data.bestTimeMs == (run.timeMs < resource.data.bestTimeMs ? run.timeMs : resource.data.bestTimeMs))
+        : request.resource.data.bestTimeMs == resource.data.bestTimeMs;
+    }
+
+    match /users/{uid} {
+      // Leaderboard/profile data is intentionally public. Do not put secrets in this document.
+      allow read: if true;
+
+      allow create: if ownUser(uid)
+        && userKeysAreValid()
+        && request.resource.data.totalRuns == 0
+        && request.resource.data.totalCorrect == 0
+        && request.resource.data.bestTimeMs == null
+        && request.resource.data.hasClear == false
+        && request.resource.data.records.size() == 0
+        && request.resource.data.history.size() == 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // Ranked/stat update: must be atomic with creation of a matching immutable run document.
+      allow update: if ownUser(uid)
+        && userKeysAreValid()
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'photoURL', 'totalRuns', 'totalCorrect',
+          'bestTimeMs', 'hasClear', 'records', 'history', 'updatedAt'
+        ])
+        && (
+          (
+            request.resource.data.totalRuns == resource.data.totalRuns + 1
+            && request.resource.data.history.size() >= 1
+            && request.resource.data.history.size() <= 100
+            && runMatchesUser(uid)
+            && runCountersMatch(uid)
+            && recordDeltaIsValid()
+            && bestTimeDeltaIsValid()
+          )
+          ||
+          (
+            request.resource.data.totalRuns == resource.data.totalRuns
+            && request.resource.data.totalCorrect == resource.data.totalCorrect
+            && request.resource.data.bestTimeMs == resource.data.bestTimeMs
+            && request.resource.data.hasClear == resource.data.hasClear
+            && request.resource.data.records == resource.data.records
+            && request.resource.data.history == resource.data.history
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'displayName', 'photoURL', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    function hasAdminRole() {
+      return signedIn() && (request.auth.token.role == 'admin' || request.auth.token.role == 'owner');
+    }
+
+    function isOwner() {
+      return signedIn() && request.auth.token.role == 'owner';
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, update: if hasAdminRole();
+      allow delete: if isOwner();
+    }
+
+    match /eventResults/{resultId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.eventId is string
+        && request.resource.data.timeMs is number
+        && request.resource.data.timeMs >= 0
+        && request.resource.data.timeMs <= 600000
+        && request.resource.data.completed is bool
+        && request.resource.data.challenges is number;
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /runs/{runId} {
+      // Run records are private to their owner. They are immutable after creation.
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'displayName', 'challengeId', 'challengeTitle', 'language',
+          'timeMs', 'correct', 'timedOut', 'variantId', 'createdAt'
+        ])
+        && request.resource.data.timeMs >= 0
+        && request.resource.data.timeMs <= 180000
+        && request.resource.data.correct is bool
+        && request.resource.data.timedOut is bool
+        && request.resource.data.displayName is string
+        && request.resource.data.challengeId is string
+        && request.resource.data.challengeTitle is string
+        && request.resource.data.language is string
+        && request.resource.data.variantId is string
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+  }
+}
