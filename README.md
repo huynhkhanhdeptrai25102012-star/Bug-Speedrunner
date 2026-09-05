@@ -9,17 +9,26 @@ Mỗi lượt chơi là một cuộc đua với chính mình và toàn bộ runn
 ## Tính năng
 
 - Speedrun với đồng hồ tính đến từng mili-giây.
-- Challenge JavaScript, HTML, C++ và C#.
-- Mỗi lượt tạo một variant code mới với nhiều lỗi cần xử lý.
+- 16 challenge nền trải trên JavaScript, HTML, C++ và C#; procedural mutation có thể ghép nhiều lỗi độc lập trong từng run.
+- Mỗi Start Match tạo một procedural board mới: challenge nền, seed, mode, tổ hợp lỗi, tên biến và độ lệch dòng lỗi đều có thể thay đổi; kết quả thắng/thua/timeout/reset đều chuẩn bị board mới.
 - Submit đúng sẽ cộng clear; submit sai hoặc timeout sẽ hiển thị hướng dẫn và chuyển sang bài mới.
 - Practice Mode để luyện tập không ảnh hưởng rank.
 - Leaderboard realtime gồm runner nhanh nhất và runner có nhiều clear nhất.
 - Đăng nhập Email/Password hoặc Google qua Firebase Authentication.
 - Profile cloud, lịch sử run và personal best.
-- AI Support phân tích bài làm sau mỗi lượt bằng Gemini.
+- AI Support phân tích đúng run vừa hoàn thành; bảng mới không làm AI nhầm sang bài kế tiếp.
 - AI Challenge tạo challenge mới theo ngôn ngữ đang chọn khi đã cấu hình Gemini API Key.
 - Rank với icon và hiệu ứng riêng cho GOD và Đế vương.
 - Export toàn bộ source thành file ZIP.
+
+
+### Procedural Arena
+- Seed mới cho từng run.
+- 1–n mutation operator được chọn theo PRNG seeded, thay vì chỉ đổi variant cố định.
+- Identifier salt và diagnostic header làm code shape khác giữa các lượt.
+- Bug lines được tính lại từ solution/broken sau khi sinh board, nên hướng dẫn failure hiển thị dòng thực tế của run.
+- Hint, session streak, live feed và sound feedback là các lớp gameplay UI mới.
+- Workspace dùng grid co giãn, toolbar có overflow có kiểm soát và bottom panel có thể thu gọn để Monaco không bị lấn diện tích.
 
 ## Hệ thống rank
 
@@ -29,9 +38,13 @@ Mỗi lượt chơi là một cuộc đua với chính mình và toàn bộ runn
 | Bạc | 5 clear |
 | Vàng | 8 clear |
 | Bạch kim | 15 clear |
+| Kim cương | 20 clear |
 | Huyền thoại | 25 clear |
+| Thăng hoa | 32 clear |
 | GOD | 40 clear |
-| Đế vương | 60 clear |
+| Bất tử | 55 clear |
+| Orbit | 72 clear |
+| Đế vương | 90 clear |
 
 Rank GOD có màu vàng và tia sét nhỏ trên leaderboard. Rank Đế vương kết hợp tím với xanh mint, đi kèm hào quang và hiệu ứng sao.
 
@@ -70,3 +83,23 @@ Trước khi ranked run có thể lưu dữ liệu, cần publish file [firestor
 ## Tác giả
 
 **Developed by HK1413.**
+
+## V5 Rank Audio
+
+Optional rank music is loaded from the local project folder:
+- `assets/audio/sovereign.mp3` — Emperor / Đế vương profile and Rank Review.
+- `assets/audio/orbitsong.mp3` — Orbit profile and Rank Review.
+
+The browser loops the active rank track and stops it when leaving the profile/review. If the files are absent, the rest of the rank UI continues to work normally.
+
+## V5 Security Foundation
+
+The V5 Admin foundation uses Firebase custom-claim roles for UI gating and Firestore rules for event writes. It is a foundation, not a claim that the browser is trusted: frontend visibility is never treated as authorization; privileged operations must be protected by Firebase Authentication, server-side roles/custom claims, Firestore Rules and trusted backend functions where needed. App Check, re-authentication for sensitive Owner actions and server-side audit logs are recommended for privileged controls.
+
+
+## V5 Event Forge
+- Event Center + per-event leaderboard.
+- IShow⚡: 10 consecutive procedural challenges, one continuous 5-minute timer, rising bug pressure, split times, medals and sub-5 title reward.
+- Admin lifecycle: Draft/Edit → Publish/Live → Close + final snapshot → Announce → Archive → Duplicate as a new event version.
+- Achievement system unlocks titles; titles can be equipped and shown on profile.
+- Admin visibility is based on Firebase custom-claim role (`admin`/`owner`); Firestore rules enforce event write access.
